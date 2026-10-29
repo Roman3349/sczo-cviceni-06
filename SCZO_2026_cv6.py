@@ -19,7 +19,7 @@ plt.close('all')
 mat = loadmat('data/hrana.mat')
 img = mat.get('a')
 
-profile = ...
+profile = img[50, :]
 
 plt.figure()
 plt.subplot(1, 2, 1)
@@ -31,11 +31,11 @@ plt.title('Jasovy profil')
 plt.show()
 
 first_h = np.array([[0, 0, 0], [0, 1, -1], [0, 0, 0]])
-filtered_by_1st = ...
+filtered_by_1st = convolve2d(img, first_h, mode="valid")
 profile_1st = filtered_by_1st[50, :]
 
 second_h = np.array([[0, 0, 0], [1, -2, 1], [0, 0, 0]])
-filtered_by_2nd = ...
+filtered_by_2nd = convolve2d(img, second_h, mode="valid")
 profile_2nd = filtered_by_2nd[50, :]
 
 plt.figure()
@@ -89,10 +89,10 @@ L = np.ones((3, 3))
 L[1, 1] = -8
 
 sharpening_operator = (F + (-L)) / K
-sharpened_by_2nd = ...
+sharpened_by_2nd = convolve2d(img, sharpening_operator)
 
 # Overte funkcnost filtrace jak zobrazenim vyfiltrovanych obrazu a odpovidajicich jasovych profilu, tak vypoctenim a porovnanim sirek profilu hran
-profile_sharpened_2nd = ...
+profile_sharpened_2nd = sharpened_by_2nd[50, :]
 width_2nd = GetProfileWidth(profile_sharpened_2nd)
 width_orig = GetProfileWidth(profile)
 
@@ -116,9 +116,9 @@ plt.show()
 
 L = np.ones((3, 3))
 L[1, 1] = -8
-laplacian = ...
+laplacian = convolve2d(img, L, mode="same")
 
-sharpened_img = ...
+sharpened_img = img - laplacian
 
 plt.figure()
 plt.subplot(1, 3, 1)
@@ -144,4 +144,97 @@ plt.show()
 # Načtěte obraz ‘ugly_quidditch.jpg’
 img = img_as_float(imread('data/ugly_quidditch.png'))
 
+spectrum = fftshift(fft2(img))
+spectrum_log = np.log1p(np.abs(spectrum))
 
+plt.figure()
+
+plt.subplot(1, 3, 1)
+plt.imshow(img, cmap='gray')
+plt.title('Původní obraz')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.hist(img.ravel(), bins=256)
+plt.title('Histogram obrazu')
+plt.xlabel('Jas')
+plt.ylabel('Počet pixelů')
+
+plt.subplot(1, 3, 3)
+plt.imshow(spectrum_log, cmap='gray')
+plt.title('Fourierovo spektrum')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+
+img_filtered = medfilt2d(img, kernel_size=5)
+
+plt.figure()
+plt.subplot(1, 2, 1)
+plt.imshow(img, cmap='gray')
+plt.title('Původní obraz')
+plt.axis('off')
+
+plt.subplot(1, 2, 2)
+plt.imshow(img_filtered, cmap='gray')
+plt.title('Obraz po mediánové filtraci')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+p2, p98 = np.percentile(img_filtered, (2, 98))
+img_contrast = np.clip((img_filtered - p2) / (p98 - p2 + 1e-8),0, 1)
+
+plt.figure()
+plt.subplot(1, 2, 1)
+plt.imshow(img_filtered, cmap='gray')
+plt.title('Po filtraci')
+plt.axis('off')
+
+plt.subplot(1, 2, 2)
+plt.imshow(img_contrast, cmap='gray')
+plt.title('Po úpravě kontrastu')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
+
+Sx = np.array([
+    [-1, 0, 1],
+    [-2, 0, 2],
+    [-1, 0, 1]
+])
+Sy = np.array([
+    [-1, -2, -1],
+    [ 0,  0,  0],
+    [ 1,  2,  1]
+])
+Gx = convolve2d(img_contrast, Sx, mode='same', boundary='symm')
+Gy = convolve2d(img_contrast, Sy, mode='same', boundary='symm')
+
+edges = np.sqrt(Gx**2 + Gy**2)
+edges = edges / (edges.max() + 1e-8)
+
+plt.figure()
+
+plt.subplot(1, 3, 1)
+plt.imshow(img_contrast, cmap='gray')
+plt.title('Obraz po úpravě kontrastu')
+plt.axis('off')
+
+plt.subplot(1, 3, 2)
+plt.imshow(edges, cmap='gray')
+plt.title('Hrany – Sobelův operátor')
+plt.axis('off')
+
+plt.subplot(1, 3, 3)
+plt.imshow(img_contrast, cmap='gray')
+plt.imshow(edges, cmap='hot', alpha=0.6)
+plt.title('Zvýrazněné hrany')
+plt.axis('off')
+
+plt.tight_layout()
+plt.show()
